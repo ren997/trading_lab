@@ -60,6 +60,7 @@ class Trade:
     planned_risk_amount: float
     net_pnl: float
     result_r: float
+    result_r_available: bool
     followed_plan: str
     entry_chart_path: str = ""
     exit_chart_path: str = ""
@@ -136,16 +137,24 @@ def load_trades(path: Path) -> list[Trade]:
             planned_risk_amount = parse_float(get_cell(row, header_map, "planned_risk_amount"))
             net_pnl_text = get_cell(row, header_map, "net_pnl")
             net_pnl = parse_float(net_pnl_text)
+            status = infer_status(
+                get_cell(row, header_map, "status"),
+                get_cell(row, header_map, "result_r"),
+                net_pnl_text,
+            )
 
             result_r_text = get_cell(row, header_map, "result_r")
+            result_r_available = bool(result_r_text or net_pnl_text)
             if result_r_text:
                 result_r = parse_float(result_r_text)
-            elif planned_risk_amount > 0:
+            elif planned_risk_amount > 0 and net_pnl_text:
                 result_r = net_pnl / planned_risk_amount
             else:
                 result_r = 0.0
 
-            if planned_risk_amount <= 0:
+            if is_closed(status) and not result_r_available:
+                print(f"提醒：第 {row_number} 行已出场但未填写净盈亏或R倍数，暂不进入R统计。")
+            elif result_r_available and planned_risk_amount <= 0 and not result_r_text:
                 print(f"提醒：第 {row_number} 行 planned_risk_amount <= 0，R 倍数可能无效。")
 
             trades.append(
@@ -156,15 +165,12 @@ def load_trades(path: Path) -> list[Trade]:
                     ),
                     date=normalize_text(get_cell(row, header_map, "date")),
                     market=normalize_text(get_cell(row, header_map, "market")),
-                    status=infer_status(
-                        get_cell(row, header_map, "status"),
-                        result_r_text,
-                        net_pnl_text,
-                    ),
+                    status=status,
                     setup=normalize_text(get_cell(row, header_map, "setup")),
                     planned_risk_amount=planned_risk_amount,
                     net_pnl=net_pnl,
                     result_r=result_r,
+                    result_r_available=result_r_available,
                     followed_plan=normalize_text(get_cell(row, header_map, "followed_plan")),
                     entry_chart_path=get_cell(row, header_map, "entry_chart_path"),
                     exit_chart_path=get_cell(row, header_map, "exit_chart_path"),
@@ -338,17 +344,23 @@ def main() -> int:
         return 0
 
     closed_trades = [trade for trade in trades if is_closed(trade.status)]
+    closed_trades_with_result = [
+        trade for trade in closed_trades if trade.result_r_available
+    ]
+    closed_trades_missing_result = len(closed_trades) - len(closed_trades_with_result)
 
     print_status_summary(trades)
-    if closed_trades:
-        print_summary("已出场交易统计", closed_trades)
-        print_grouped_summary(closed_trades, "setup", "按 setup 拆分")
-        print_grouped_summary(closed_trades, "market", "按 market 拆分")
-        print_execution_summary(closed_trades)
+    if closed_trades_with_result:
+        if closed_trades_missing_result:
+            print(f"\n已出场但结果待补：{closed_trades_missing_result} 笔")
+        print_summary("已出场交易统计", closed_trades_with_result)
+        print_grouped_summary(closed_trades_with_result, "setup", "按 setup 拆分")
+        print_grouped_summary(closed_trades_with_result, "market", "按 market 拆分")
+        print_execution_summary(closed_trades_with_result)
     else:
         print("\n已出场交易统计")
         print("==============")
-        print("还没有已出场交易；当前持仓不会进入胜率、平均 R 和回撤统计。")
+        print("还没有可统计R的已出场交易；当前持仓和结果待补记录不会进入胜率、平均 R 和回撤统计。")
 
     print_chart_path_summary(trades, path)
 
