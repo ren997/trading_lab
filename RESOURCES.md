@@ -26,6 +26,12 @@
 - [Backtrader: Quickstart Guide](https://www.backtrader.com/docu/quickstart/quickstart/)
   Backtrader 官方快速开始文档。用于理解最小回测框架通常由数据、策略、订单、仓位和绩效组成。
 
+- [StockCharts ChartSchool: The Wyckoff Method: A Tutorial](https://chartschool.stockcharts.com/table-of-contents/market-analysis/wyckoff-analysis-articles/the-wyckoff-method-a-tutorial)
+  系统介绍威科夫方法的来源、三大法则、五步分析、吸筹/派发区间和常见事件。适合学习量价结构时作为主要参考，但需要记住它仍属于技术分析框架，不能替代回测和风控。
+
+- [CMT Association: Wyckoff Laws and Tests](https://cmtassociation.org/technically_speaking/technically-speaking-september-2015/)
+  CMT Association 发布的威科夫法则与测试文章，强调威科夫不是纯机械系统，而是需要判断的技术分析方法。适合用来提醒自己：威科夫语言要落到可记录、可验证的交易规则上。
+
 ## Wisdom (Communities)
 
 - [Quantitative Finance Stack Exchange](https://quant.stackexchange.com/)
@@ -36,3 +42,4 @@
 - 还需要补充更适合中文学习者的交易基础与风险管理资源。
 - 还需要补充关于手续费、滑点、流动性和撮合细节的系统材料。
 - 还需要补充一组面向 Python 初学者的回测练习资源。
+- 还需要补充更接近原始威科夫课程或权威教材的可访问资料，用来校准二手教程中的术语差异。
