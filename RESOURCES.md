@@ -32,6 +32,9 @@
 - [CMT Association: Wyckoff Laws and Tests](https://cmtassociation.org/technically_speaking/technically-speaking-september-2015/)
   CMT Association 发布的威科夫法则与测试文章，强调威科夫不是纯机械系统，而是需要判断的技术分析方法。适合用来提醒自己：威科夫语言要落到可记录、可验证的交易规则上。
 
+- [Brooks Trading Course: 10 Best Price Action Trading Patterns](https://www.brookstradingcourse.com/price-action-trading/10-best-price-action-trading-patterns/)
+  Al Brooks 团队的公开价格行为资料。用于核对楔形、反转与跟随等术语；它代表一种主观图表解读框架，不能替代样本统计、止损和风险管理。
+
 ## Wisdom (Communities)
 
 - [Quantitative Finance Stack Exchange](https://quant.stackexchange.com/)
