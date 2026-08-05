@@ -54,6 +54,7 @@ HEADERS = [
     "主要错误",
     "情绪标签",
     "备注",
+    "风险金额状态",
 ]
 
 
@@ -76,6 +77,11 @@ def ensure_csv_exists() -> None:
                         normalized_row["交易状态"] = "已出场"
                     else:
                         normalized_row["交易状态"] = "持仓中"
+                if not normalized_row["风险金额状态"]:
+                    planned_risk = parse_float(normalized_row["计划风险金额"])
+                    normalized_row["风险金额状态"] = (
+                        "已记录" if planned_risk and planned_risk > 0 else "待补"
+                    )
                 writer.writerow(normalized_row)
         return
 
@@ -149,6 +155,10 @@ def compute_fields(row: dict[str, str]) -> None:
     net_pnl = parse_float(row["净盈亏"])
     if not row["R倍数"].strip() and planned_risk_amount and net_pnl is not None:
         row["R倍数"] = format_number(net_pnl / planned_risk_amount)
+
+    row["风险金额状态"] = (
+        "已记录" if planned_risk_amount and planned_risk_amount > 0 else "待补"
+    )
 
 
 def append_row(row: dict[str, str]) -> None:
@@ -226,13 +236,14 @@ def render_recent_rows(rows: list[dict[str, str]]) -> str:
             f"<td>{escape(row.get('交易形态', ''))}</td>"
             f"<td>{escape(row.get('R倍数', ''))}</td>"
             f"<td>{escape(row.get('是否按计划执行', ''))}</td>"
+            f"<td>{escape(row.get('风险金额状态', ''))}</td>"
             "</tr>"
         )
 
     return (
         "<table><thead><tr>"
         "<th>ID</th><th>日期</th><th>市场</th><th>品种</th>"
-        "<th>状态</th><th>形态</th><th>R</th><th>执行</th>"
+        "<th>状态</th><th>形态</th><th>R</th><th>执行</th><th>风险金额</th>"
         "</tr></thead><tbody>"
         + "".join(lines)
         + "</tbody></table>"
@@ -409,7 +420,7 @@ def render_page(message: str = "") -> bytes:
       <h2>填写提示</h2>
       <div class="hint">
         <p>截图可以只填文件名，例如 <code>btc-entry.png</code>，系统会自动记录成 <code>charts/btc-entry.png</code>。</p>
-        <p>如果你填写了入场价、止损价、出场价、数量，页面会在保存时自动补计划风险、净盈亏和 R 倍数。</p>
+        <p>如果你填写了入场价、止损价、出场价、数量，页面会在保存时自动补计划风险、净盈亏和 R 倍数；计划风险金额大于 0 时会自动标为“已记录”。</p>
       </div>
       <h2>最近记录</h2>
       {render_recent_rows(rows)}

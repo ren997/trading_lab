@@ -35,6 +35,7 @@ FIELD_ALIASES = {
     "status": ("status", "交易状态", "状态"),
     "setup": ("setup", "交易形态", "形态", "Setup"),
     "planned_risk_amount": ("planned_risk_amount", "计划风险金额", "计划风险"),
+    "risk_amount_status": ("risk_amount_status", "风险金额状态", "风险状态"),
     "net_pnl": ("net_pnl", "净盈亏", "实际盈亏"),
     "result_r": ("result_r", "R倍数", "R 倍数"),
     "followed_plan": ("followed_plan", "是否按计划执行", "按计划执行"),
@@ -58,6 +59,7 @@ class Trade:
     status: str
     setup: str
     planned_risk_amount: float
+    risk_amount_status: str
     net_pnl: float
     result_r: float
     result_r_available: bool
@@ -135,6 +137,9 @@ def load_trades(path: Path) -> list[Trade]:
         trades: list[Trade] = []
         for row_number, row in enumerate(reader, start=2):
             planned_risk_amount = parse_float(get_cell(row, header_map, "planned_risk_amount"))
+            risk_amount_status = get_cell(row, header_map, "risk_amount_status")
+            if not risk_amount_status:
+                risk_amount_status = "已记录" if planned_risk_amount > 0 else "待补"
             net_pnl_text = get_cell(row, header_map, "net_pnl")
             net_pnl = parse_float(net_pnl_text)
             status = infer_status(
@@ -168,6 +173,7 @@ def load_trades(path: Path) -> list[Trade]:
                     status=status,
                     setup=normalize_text(get_cell(row, header_map, "setup")),
                     planned_risk_amount=planned_risk_amount,
+                    risk_amount_status=risk_amount_status,
                     net_pnl=net_pnl,
                     result_r=result_r,
                     result_r_available=result_r_available,
@@ -251,6 +257,19 @@ def print_status_summary(trades: list[Trade]) -> None:
     print(f"持仓中：{len(open_trades)} 笔")
     if other:
         print(f"其他状态：{other} 笔")
+
+
+def print_risk_amount_summary(trades: list[Trade]) -> None:
+    recorded = [trade for trade in trades if trade.planned_risk_amount > 0]
+    pending = [trade for trade in trades if trade.planned_risk_amount <= 0]
+
+    print("\n计划风险金额记录")
+    print("================")
+    print(f"已记录：{len(recorded)} 笔")
+    print(f"待补：{len(pending)} 笔")
+    if pending:
+        pending_ids = ", ".join(trade.trade_id for trade in pending)
+        print(f"待补交易ID：{pending_ids}")
 
 
 def print_grouped_summary(trades: list[Trade], field_name: str, title: str) -> None:
@@ -350,6 +369,7 @@ def main() -> int:
     closed_trades_missing_result = len(closed_trades) - len(closed_trades_with_result)
 
     print_status_summary(trades)
+    print_risk_amount_summary(trades)
     if closed_trades_with_result:
         if closed_trades_missing_result:
             print(f"\n已出场但结果待补：{closed_trades_missing_result} 笔")
