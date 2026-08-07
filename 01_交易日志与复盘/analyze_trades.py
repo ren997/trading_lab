@@ -13,6 +13,7 @@ import csv
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from statistics import mean
 
@@ -49,6 +50,9 @@ CHART_PATH_COLUMNS = (
     "exit_chart_path",
     "review_chart_path",
 )
+
+# 该日期（含）及以前的交易只保留作历史存档，不进入后续统计样本。
+STATISTICS_CUTOFF_DATE = date(2026, 7, 2)
 
 
 @dataclass(frozen=True)
@@ -122,6 +126,20 @@ def is_open(status: str) -> bool:
     return status.strip().lower() in {"持仓中", "open", "holding", "进行中"}
 
 
+def parse_trade_date(value: str) -> date | None:
+    """Parse the ISO-style trade date used by the CSV, if available."""
+    try:
+        return date.fromisoformat(value.strip())
+    except ValueError:
+        return None
+
+
+def is_in_statistics_sample(trade: Trade) -> bool:
+    """Keep undated trades visible while excluding the agreed historical period."""
+    trade_date = parse_trade_date(trade.date)
+    return trade_date is None or trade_date > STATISTICS_CUTOFF_DATE
+
+
 def load_trades(path: Path) -> list[Trade]:
     with path.open("r", encoding="utf-8-sig", newline="") as file:
         reader = csv.DictReader(file)
@@ -149,7 +167,9 @@ def load_trades(path: Path) -> list[Trade]:
             )
 
             result_r_text = get_cell(row, header_map, "result_r")
-            result_r_available = bool(result_r_text or net_pnl_text)
+            result_r_available = bool(
+                result_r_text or (net_pnl_text and planned_risk_amount > 0)
+            )
             if result_r_text:
                 result_r = parse_float(result_r_text)
             elif planned_risk_amount > 0 and net_pnl_text:
@@ -157,10 +177,18 @@ def load_trades(path: Path) -> list[Trade]:
             else:
                 result_r = 0.0
 
-            if is_closed(status) and not result_r_available:
+            if (
+                is_closed(status)
+                and net_pnl_text
+                and not result_r_text
+                and planned_risk_amount <= 0
+            ):
+                print(
+                    f"提醒：第 {row_number} 行已填写净盈亏，但计划风险金额待补，"
+                    "暂不进入R统计。"
+                )
+            elif is_closed(status) and not result_r_available:
                 print(f"提醒：第 {row_number} 行已出场但未填写净盈亏或R倍数，暂不进入R统计。")
-            elif result_r_available and planned_risk_amount <= 0 and not result_r_text:
-                print(f"提醒：第 {row_number} 行 planned_risk_amount <= 0，R 倍数可能无效。")
 
             trades.append(
                 Trade(
@@ -272,6 +300,21 @@ def print_risk_amount_summary(trades: list[Trade]) -> None:
         print(f"待补交易ID：{pending_ids}")
 
 
+def print_statistics_scope(
+    included_trades: list[Trade], excluded_trades: list[Trade], undated_trades: list[Trade]
+) -> None:
+    print("\n统计样本口径")
+    print("============")
+    print(
+        f"按日志日期排除：{STATISTICS_CUTOFF_DATE.isoformat()}（含）及以前的交易"
+    )
+    print(f"当前纳入统计：{len(included_trades)} 笔")
+    print(f"历史存档、不纳入统计：{len(excluded_trades)} 笔")
+    if undated_trades:
+        undated_ids = ", ".join(trade.trade_id for trade in undated_trades)
+        print(f"日期待补、暂纳入统计：{undated_ids}")
+
+
 def print_grouped_summary(trades: list[Trade], field_name: str, title: str) -> None:
     print(f"\n{title}")
     print("=" * len(title))
@@ -362,14 +405,24 @@ def main() -> int:
         print("没有可统计的交易记录。")
         return 0
 
-    closed_trades = [trade for trade in trades if is_closed(trade.status)]
+    statistics_trades = [trade for trade in trades if is_in_statistics_sample(trade)]
+    excluded_historical_trades = [
+        trade for trade in trades if not is_in_statistics_sample(trade)
+    ]
+    undated_statistics_trades = [
+        trade for trade in statistics_trades if parse_trade_date(trade.date) is None
+    ]
+    closed_trades = [trade for trade in statistics_trades if is_closed(trade.status)]
     closed_trades_with_result = [
         trade for trade in closed_trades if trade.result_r_available
     ]
     closed_trades_missing_result = len(closed_trades) - len(closed_trades_with_result)
 
     print_status_summary(trades)
-    print_risk_amount_summary(trades)
+    print_statistics_scope(
+        statistics_trades, excluded_historical_trades, undated_statistics_trades
+    )
+    print_risk_amount_summary(statistics_trades)
     if closed_trades_with_result:
         if closed_trades_missing_result:
             print(f"\n已出场但结果待补：{closed_trades_missing_result} 笔")
