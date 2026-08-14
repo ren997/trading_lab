@@ -31,6 +31,10 @@ Backtest-oriented changes should record:
 - fees, slippage, and position sizing assumptions
 - key failure modes such as look-ahead bias or overfitting risk
 
+## Git Workflow
+
+除非用户明确要求，否则不得新建或切换到其他 Git 分支；所有修改、提交和推送都只在 `master` 分支完成。
+
 ## Commit & Pull Request Guidelines
 
 Use Conventional Commit-style prefixes such as `feat:`, `fix:`, `docs:`, and `chore:`. Keep commit subjects concise and preferably in Chinese after the prefix, for example `docs: 初始化交易学习工作区`.
